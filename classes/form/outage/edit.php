@@ -75,6 +75,14 @@ class edit extends moodleform {
         $mform->addElement('static', 'usagehints', '', get_string('textplaceholdershint', 'auth_outage'));
         $mform->addElement('static', 'warningreenablemaintenancemode', '');
 
+        $mform->addElement('advcheckbox', 'useaccesskey', get_string('useaccesskey', 'auth_outage'),
+            get_string('useaccesskey:desc', 'auth_outage'), 0);
+
+        $mform->addElement('text', 'accesskey', get_string('accesskey', 'auth_outage'));
+        $mform->setType('accesskey', PARAM_TEXT);
+        $mform->disabledIf('accesskey', 'useaccesskey');
+        $mform->addHelpButton('accesskey', 'accesskey', 'auth_outage');
+
         $this->add_action_buttons();
     }
 
@@ -128,6 +136,7 @@ class edit extends moodleform {
             'warntime' => $data->starttime - $data->warningduration,
             'title' => $data->title,
             'description' => $data->description['text'],
+            'accesskey' => $data->useaccesskey ? $data->accesskey : null,
         ];
         return new outage($outagedata);
     }
@@ -151,6 +160,8 @@ class edit extends moodleform {
                 'warningduration' => $outage->get_warning_duration(),
                 'title' => $outage->title,
                 'description' => ['text' => $outage->description, 'format' => '1'],
+                'accesskey' => $outage->accesskey,
+                'useaccesskey' => !empty($outage->accesskey),
             ]);
 
             // If the default_autostart is configured in config, then force autostart to be the default value.

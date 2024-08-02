@@ -109,6 +109,11 @@ class outage {
     public $lastmodified = null;
 
     /**
+     * @var string|null access key, or null if not enabled.
+     */
+    public $accesskey = null;
+
+    /**
      * outage constructor.
      * @param stdClass|array|null $data The data for the outage.
      * @throws coding_exception

@@ -47,5 +47,20 @@ function xmldb_auth_outage_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2016092200, 'auth', 'outage');
     }
 
+    if ($oldversion < 2024080200) {
+
+        // Define field accesskey to be added to auth_outage.
+        $table = new xmldb_table('auth_outage');
+        $field = new xmldb_field('accesskey', XMLDB_TYPE_CHAR, '16', null, null, null, null, 'finished');
+
+        // Conditionally launch add field accesskey.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Outage savepoint reached.
+        upgrade_plugin_savepoint(true, 2024080200, 'auth', 'outage');
+    }
+
     return true;
 }

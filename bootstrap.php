@@ -77,13 +77,15 @@ if (!empty($_SERVER['REQUEST_URI'])) {
     $url = $path.'/auth/outage/info.php';
     $outageinfo = strpos($_SERVER['REQUEST_URI'], $url) === 0 ? true : false;
 }
+
 $allowed = !file_exists($CFG->dataroot.'/climaintenance.php') // Not in maintenance mode.
            || (defined('ABORT_AFTER_CONFIG') && ABORT_AFTER_CONFIG) // Only config requested.
            || (defined('CLI_SCRIPT') && CLI_SCRIPT) // Allow CLI scripts.
            || $outageinfo // Allow outage info requests.
            || (defined('NO_AUTH_OUTAGE') && NO_AUTH_OUTAGE); // Allow any page should not be blocked by maintenance mode.
 if (!$allowed) {
-    // Call the climaintenance.php which will check for allowed IPs.
+    // Call the climaintenance.php which will check for the conditions
+    // that have been baked into it from the frontend (ip, accesskey, etc...).
     $CFG->dirroot = dirname(dirname(dirname(__FILE__))); // It is not defined yet but the script below needs it.
     require($CFG->dataroot.'/climaintenance.php'); // This call may terminate the script here or not.
 }

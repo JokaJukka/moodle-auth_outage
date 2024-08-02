@@ -308,43 +308,84 @@ class outagelib_test extends \auth_outage\base_testcase {
      * Test create maintenance php code
      */
     public function test_createmaintenancephpcode() {
+        global $CFG;
+        $CFG->cookiehttponly = false;
+
         $expected = <<<'EOT'
 <?php
 if ((time() >= 123) && (time() < 456)) {
-    define('MOODLE_INTERNAL', true);
+    if (!defined('MOODLE_INTERNAL')) {
+        define('MOODLE_INTERNAL', true);
+    }
     require_once($CFG->dirroot.'/lib/moodlelib.php');
     if (file_exists($CFG->dirroot.'/lib/classes/ip_utils.php')) {
         require_once($CFG->dirroot.'/lib/classes/ip_utils.php');
     }
-    if (!remoteip_in_list('hey\'\"you
+    // Put access key as a cookie if given. This stops the need to put it as a url param on every request.
+    $urlaccesskey = optional_param('accesskey', null, PARAM_TEXT);
+
+    if (!empty($urlaccesskey)) {
+        setcookie('auth_outage_accesskey', $urlaccesskey, time() + 86400, '/', '', true, false);
+    }
+
+    // Use url access key if given, else the cookie, else null.
+    $useraccesskey = $urlaccesskey ?: $_COOKIE['auth_outage_accesskey'] ?? null;
+
+    $ipblocked = !remoteip_in_list('hey\'\"you
 a.b.c.d
-e.e.e.e/20')) {
-        header($_SERVER['SERVER_PROTOCOL'] . ' 503 Moodle under maintenance');
-        header('Status: 503 Moodle under maintenance');
-        header('Retry-After: 300');
-        header('Content-type: text/html; charset=utf-8');
-        header('X-UA-Compatible: IE=edge');
-        header('Cache-Control: no-store, no-cache, must-revalidate');
-        header('Cache-Control: post-check=0, pre-check=0', false);
-        header('Pragma: no-cache');
-        header('Expires: Mon, 20 Aug 1969 09:23:00 GMT');
-        header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
-        header('Accept-Ranges: none');
-        header('X-Moodle-Maintenance: manager');
-        if ((defined('AJAX_SCRIPT') && AJAX_SCRIPT) || (defined('WS_SERVER') && WS_SERVER)) {
+e.e.e.e/20');
+    $accesskeyblocked = $useraccesskey != '12345';
+    $blocked = (true && $accesskeyblocked) || (true && $ipblocked);
+    $isphpunit = defined('PHPUNIT_TEST');
+
+    if ($blocked) {
+        if (!$isphpunit) {
+            header($_SERVER['SERVER_PROTOCOL'] . ' 503 Moodle under maintenance');
+            header('Status: 503 Moodle under maintenance');
+            header('Retry-After: 300');
+            header('Content-type: text/html; charset=utf-8');
+            header('X-UA-Compatible: IE=edge');
+            header('Cache-Control: no-store, no-cache, must-revalidate');
+            header('Cache-Control: post-check=0, pre-check=0', false);
+            header('Pragma: no-cache');
+            header('Expires: Mon, 20 Aug 1969 09:23:00 GMT');
+            header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
+            header('Accept-Ranges: none');
+            header('X-Moodle-Maintenance: manager');
+        }
+
+        if (!$isphpunit && ((defined('AJAX_SCRIPT') && AJAX_SCRIPT) || (defined('WS_SERVER') && WS_SERVER))) {
             exit(0);
         }
-        echo '<!-- Blocked by ip, your ip: '.getremoteaddr('n/a').' -->';
-        if (file_exists($CFG->dataroot.'/climaintenance.template.html')) {
-            require($CFG->dataroot.'/climaintenance.template.html');
-            exit(0);
+
+        if (true && $ipblocked) {
+            echo '<!-- Blocked by ip, your ip: '.getremoteaddr('n/a').' -->';
         }
-        // The file above should always exist, but just in case...
-        die('We are currently under maintentance, please try again later.');
+        
+        if (true && !$ipblocked) {
+            echo '<!-- Your IP is allowed: '.getremoteaddr('n/a').' -->';
+        }
+
+        if (true && $accesskeyblocked) {
+            echo '<!-- Blocked by missing or incorrect access key, access key given: '. $useraccesskey .' -->';
+        }
+
+        if (true && !$accesskeyblocked) {
+            echo '<!-- Your access key is allowed: '. $useraccesskey .' -->';
+        }
+
+        if (!$isphpunit) {
+            if (file_exists($CFG->dataroot.'/climaintenance.template.html')) {
+                require($CFG->dataroot.'/climaintenance.template.html');
+                exit(0);
+            }
+            // The file above should always exist, but just in case...
+            die('We are currently under maintentance, please try again later.');
+        }
     }
 }
 EOT;
-        $found = outagelib::create_climaintenancephp_code(123, 456, "hey'\"you\na.b.c.d\ne.e.e.e/20");
+        $found = outagelib::create_climaintenancephp_code(123, 456, "hey'\"you\na.b.c.d\ne.e.e.e/20", '12345');
         self::assertSame($expected, $found);
     }
 
@@ -357,44 +398,84 @@ EOT;
     public function test_createmaintenancephpcode_withoutage($configkey) {
         global $CFG;
         $this->resetAfterTest(true);
+        $CFG->cookiehttponly = false;
 
         $expected = <<<'EOT'
 <?php
 if ((time() >= 123) && (time() < 456)) {
-    define('MOODLE_INTERNAL', true);
+    if (!defined('MOODLE_INTERNAL')) {
+        define('MOODLE_INTERNAL', true);
+    }
     require_once($CFG->dirroot.'/lib/moodlelib.php');
     if (file_exists($CFG->dirroot.'/lib/classes/ip_utils.php')) {
         require_once($CFG->dirroot.'/lib/classes/ip_utils.php');
     }
-    if (!remoteip_in_list('127.0.0.1')) {
-        header($_SERVER['SERVER_PROTOCOL'] . ' 503 Moodle under maintenance');
-        header('Status: 503 Moodle under maintenance');
-        header('Retry-After: 300');
-        header('Content-type: text/html; charset=utf-8');
-        header('X-UA-Compatible: IE=edge');
-        header('Cache-Control: no-store, no-cache, must-revalidate');
-        header('Cache-Control: post-check=0, pre-check=0', false);
-        header('Pragma: no-cache');
-        header('Expires: Mon, 20 Aug 1969 09:23:00 GMT');
-        header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
-        header('Accept-Ranges: none');
-        header('X-Moodle-Maintenance: manager');
-        if ((defined('AJAX_SCRIPT') && AJAX_SCRIPT) || (defined('WS_SERVER') && WS_SERVER)) {
+    // Put access key as a cookie if given. This stops the need to put it as a url param on every request.
+    $urlaccesskey = optional_param('accesskey', null, PARAM_TEXT);
+
+    if (!empty($urlaccesskey)) {
+        setcookie('auth_outage_accesskey', $urlaccesskey, time() + 86400, '/', '', true, false);
+    }
+
+    // Use url access key if given, else the cookie, else null.
+    $useraccesskey = $urlaccesskey ?: $_COOKIE['auth_outage_accesskey'] ?? null;
+
+    $ipblocked = !remoteip_in_list('127.0.0.1');
+    $accesskeyblocked = $useraccesskey != '5678';
+    $blocked = (true && $accesskeyblocked) || (true && $ipblocked);
+    $isphpunit = defined('PHPUNIT_TEST');
+
+    if ($blocked) {
+        if (!$isphpunit) {
+            header($_SERVER['SERVER_PROTOCOL'] . ' 503 Moodle under maintenance');
+            header('Status: 503 Moodle under maintenance');
+            header('Retry-After: 300');
+            header('Content-type: text/html; charset=utf-8');
+            header('X-UA-Compatible: IE=edge');
+            header('Cache-Control: no-store, no-cache, must-revalidate');
+            header('Cache-Control: post-check=0, pre-check=0', false);
+            header('Pragma: no-cache');
+            header('Expires: Mon, 20 Aug 1969 09:23:00 GMT');
+            header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
+            header('Accept-Ranges: none');
+            header('X-Moodle-Maintenance: manager');
+        }
+
+        if (!$isphpunit && ((defined('AJAX_SCRIPT') && AJAX_SCRIPT) || (defined('WS_SERVER') && WS_SERVER))) {
             exit(0);
         }
-        echo '<!-- Blocked by ip, your ip: '.getremoteaddr('n/a').' -->';
-        if (file_exists($CFG->dataroot.'/climaintenance.template.html')) {
-            require($CFG->dataroot.'/climaintenance.template.html');
-            exit(0);
+
+        if (true && $ipblocked) {
+            echo '<!-- Blocked by ip, your ip: '.getremoteaddr('n/a').' -->';
         }
-        // The file above should always exist, but just in case...
-        die('We are currently under maintentance, please try again later.');
+        
+        if (true && !$ipblocked) {
+            echo '<!-- Your IP is allowed: '.getremoteaddr('n/a').' -->';
+        }
+
+        if (true && $accesskeyblocked) {
+            echo '<!-- Blocked by missing or incorrect access key, access key given: '. $useraccesskey .' -->';
+        }
+
+        if (true && !$accesskeyblocked) {
+            echo '<!-- Your access key is allowed: '. $useraccesskey .' -->';
+        }
+
+        if (!$isphpunit) {
+            if (file_exists($CFG->dataroot.'/climaintenance.template.html')) {
+                require($CFG->dataroot.'/climaintenance.template.html');
+                exit(0);
+            }
+            // The file above should always exist, but just in case...
+            die('We are currently under maintentance, please try again later.');
+        }
     }
 }
 EOT;
         $outage = new outage([
             'starttime' => 123,
             'stoptime' => 456,
+            'accesskey' => '5678',
         ]);
         $file = $CFG->dataroot.'/climaintenance.php';
         set_config($configkey, '127.0.0.1', 'auth_outage');
@@ -414,15 +495,16 @@ EOT;
     }
 
     /**
-     * Test create maintenance php code without IPs
+     * Test create maintenance php code without IPs or accesskey
      */
-    public function test_createmaintenancephpcode_withoutips() {
+    public function test_createmaintenancephpcode_withoutips_or_accesskey() {
         global $CFG;
         $this->resetAfterTest(true);
 
         $outage = new outage([
             'starttime' => 123,
             'stoptime' => 456,
+            'accesskey' => null,
         ]);
         $file = $CFG->dataroot.'/climaintenance.php';
         set_config('allowedips', '', 'auth_outage');
@@ -590,5 +672,141 @@ EOT;
         set_config('auth', 'outage');
         \core\session\manager::gc(); // Remove stale sessions.
         \core_plugin_manager::reset_caches();
+    }
+
+    /**
+     * Provides values to test_evaluation_maintenancepage
+     * @return array
+     */
+    public static function evaluation_maintenancepage_provider(): array {
+        $allowedipout = '<!-- Your IP is allowed:';
+        $blockedipout = '<!-- Blocked by ip, your ip:';
+        $allowedaccesskeyout = '<!-- Your access key is allowed:';
+        $blockedaccesskeyout = '<!-- Blocked by missing or incorrect access key, access key given:';
+
+        return [
+            'ip allowed, no access key setup' => [
+                'allowedips' => '127.0.0.1',
+                'iptouse' => '127.0.0.1',
+                'accesskey' => null,
+                'accesskeytouse' => null,
+                'expectedoutputs' => [],
+            ],
+            'ip not allowed, no access key setup' => [
+                'allowedips' => '5.5.5.5',
+                'iptouse' => '127.0.0.1',
+                'accesskey' => null,
+                'accesskeytouse' => null,
+                'expectedoutputs' => [$blockedipout],
+            ],
+            'access key incorrect, no ip setup' => [
+                'allowedips' => null,
+                'iptouse' => null,
+                'accesskey' => '12345',
+                'accesskeytouse' => 'wrong',
+                'expectedoutputs' => [$blockedaccesskeyout],
+            ],
+            'access key correct, no ip setup' => [
+                'allowedips' => null,
+                'iptouse' => null,
+                'accesskey' => '12345',
+                'accesskeytouse' => '12345',
+                'expectedoutputs' => [],
+            ],
+            'access key correct, ip incorrect' => [
+                'allowedips' => '127.0.0.1',
+                'iptouse' => '5.5.5.5',
+                'accesskey' => '12345',
+                'accesskeytouse' => '12345',
+                'expectedoutputs' => [$allowedaccesskeyout, $blockedipout],
+            ],
+            'access key incorrect, ip correct' => [
+                'allowedips' => '127.0.0.1',
+                'iptouse' => '127.0.0.1',
+                'accesskey' => '12345',
+                'accesskeytouse' => 'wrong',
+                'expectedoutputs' => [$blockedaccesskeyout, $allowedipout],
+            ],
+            'access key correct, ip correct' => [
+                'allowedips' => '127.0.0.1',
+                'iptouse' => '127.0.0.1',
+                'accesskey' => '12345',
+                'accesskeytouse' => '12345',
+                'expectedoutputs' => [],
+            ],
+        ];
+    }
+
+    /**
+     * Tests the evaluation logic of the generated maintenance page.
+     *
+     * @param string|null $allowedips config to set as allowed ips - null to not set
+     * @param string|null $iptouse ip to 'fake' as the remote ip, or null to not set.
+     * @param string|null $accesskey config to set as the access key in the outage - null to not set
+     * @param string|null $accesskeytouse access key to pass in as fake url params - null to not set
+     * @param array $expectedoutputs expected output strings, if empty will test that the output was also empty.
+     *
+     * @dataProvider evaluation_maintenancepage_provider
+     *
+     * We need this because we modify the request headers,
+     * see https://github.com/sebastianbergmann/phpunit/issues/720#issuecomment-10421092
+     * @runInSeparateProcess
+     */
+    public function test_evaluation_maintenancepage(?string $allowedips, ?string $iptouse, ?string $accesskey,
+        ?string $accesskeytouse, array $expectedoutputs) {
+
+        global $CFG, $_SERVER, $_GET;
+
+        $this->resetAfterTest(true);
+        self::setAdminUser();
+        $now = time();
+        $outage = new outage([
+            'autostart' => false,
+            'warntime' => $now - 200,
+            'starttime' => $now - 100,
+            'stoptime' => $now + 200,
+            'title' => 'Title',
+            'description' => 'Description',
+            'accesskey' => $accesskey,
+        ]);
+
+        if (!is_null($allowedips)) {
+            set_config('allowedips', $allowedips, 'auth_outage');
+        }
+        // Ensure if the file exists we clean it (e.g. from a previous test run).
+        $file = $CFG->dataroot.'/climaintenance.php';
+        if (file_exists($file)) {
+            unlink($file);
+        }
+
+        // This basically sets the output of getremoteaddr().
+        if (!is_null($iptouse)) {
+            $_SERVER['REMOTE_ADDR'] = $iptouse;
+        }
+
+        // This sets the output of optional_param().
+        if (!is_null($accesskeytouse)) {
+            $_GET['accesskey'] = $accesskeytouse;
+        }
+
+        outagelib::update_climaintenance_code($outage);
+        self::assertFileExists($file);
+
+        // Require the file to execute it.
+        // Normally this would die, but we have baked some goodies in there
+        // that stop it die'ing during a unit test.
+        ob_start();
+        require($file);
+        $contents = ob_get_clean();
+
+        // Check each output is as expected.
+        foreach ($expectedoutputs as $expectedoutput) {
+            $this->assertStringContainsString($expectedoutput, $contents);
+        }
+
+        // Ensure if nothing was expected, that it is empty.
+        if (empty($expectedoutputs)) {
+            $this->assertEmpty($contents);
+        }
     }
 }

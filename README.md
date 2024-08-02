@@ -1,16 +1,21 @@
 ![GitHub Workflow Status (branch)](https://img.shields.io/github/actions/workflow/status/catalyst/moodle-auth_outage/ci.yml?branch=MOODLE_39_STABLE)
 
 # Moodle Outage manager plugin
-* [Version Support](#version-support)
-* [What is this?](#what-is-this)
-* [Moodle Requirements](#moodle-requirements)
-* [Screenshots](#screenshots)
-* [Installation](#installation)
-* [Theme configuration](#theme-configuration)
-* [How to use](#how-to-use)
-* [Quick Guide](#quick-guide)
-* [Why is it an auth plugin?](#why-it-is-an-auth-plugin)
-* [Feedback and issues](#feedback-and-issues)
+- [Moodle Outage manager plugin](#moodle-outage-manager-plugin)
+  - [What is this?](#what-is-this)
+  - [Moodle Requirements](#moodle-requirements)
+  - [Branches](#branches)
+  - [Screenshots](#screenshots)
+  - [Installation](#installation)
+  - [Theme configuration](#theme-configuration)
+  - [Custom Theme Additional SCSS](#custom-theme-additional-scss)
+  - [How to use](#how-to-use)
+  - [Quick Guide](#quick-guide)
+  - [Why it is an auth plugin?](#why-it-is-an-auth-plugin)
+  - [Tester restriction options](#tester-restriction-options)
+  - [IP restriction](#ip-restriction)
+  - [Access key](#access-key)
+  - [Feedback and issues](#feedback-and-issues)
 
 What is this?
 -------------
@@ -177,6 +182,16 @@ Why it is an auth plugin?
 -------------------------
 
 One of the graduated stages this plugin introduces is a 'tester only' mode which disables login for most normal users. This is conceptually similar to the maintenance mode but enables testers to login and confirm the state after an upgrade without needing full admin privileges. 
+
+Tester restriction options
+------------
+Two options are available to restrict the site to only let testers in during the tester phase.
+Note: these restrictions build on each other; If both are enabled, users must meet both criteria to be allowed in.
+
+## IP restriction
+Only allow users from a certain IP or range of ips to enter.
+## Access key
+Users provide an access key in the URL params on first page load, which is then stored as a cookie for 24 hours. If the access key matches the one setup for the outage, they are allowed in.
 
 
 Feedback and issues

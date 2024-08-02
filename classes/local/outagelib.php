@@ -279,57 +279,103 @@ class outagelib {
      * @param int    $starttime  Outage start time.
      * @param int    $stoptime   Outage stop time.
      * @param string $allowedips List of IPs allowed.
+     * @param string|null $accesskey access key, or null if no access key set.
      *
      * @return string
      * @throws invalid_parameter_exception
      */
-    public static function create_climaintenancephp_code($starttime, $stoptime, $allowedips) {
+    public static function create_climaintenancephp_code($starttime, $stoptime, $allowedips, $accesskey = null) {
+        global $CFG;
         if (!is_int($starttime) || !is_int($stoptime)) {
             throw new invalid_parameter_exception('Make sure $startime and $stoptime are integers.');
-        }
-        if (!is_string($allowedips) || (trim($allowedips) == '')) {
-            throw new invalid_parameter_exception('$allowedips must be a valid string.');
         }
         // I know Moodle validation would clean up this field, but just in case, let's ensure no
         // single-quotes (and double for the sake of it) are present otherwise it would break the code.
         $allowedips = addslashes($allowedips);
 
+        $cookiesecure = is_moodle_cookie_secure();
+
+        // Since Moodle 4.3 cookiehttponly is default to true and this CFG is not set.
+        // so if not set, default to true.
+        $cookiehttponly = isset($CFG->cookiehttponly) ? (bool) $CFG->cookiehttponly : true;
+
         $code = <<<'EOT'
 <?php
 if ((time() >= {{STARTTIME}}) && (time() < {{STOPTIME}})) {
-    define('MOODLE_INTERNAL', true);
+    if (!defined('MOODLE_INTERNAL')) {
+        define('MOODLE_INTERNAL', true);
+    }
     require_once($CFG->dirroot.'/lib/moodlelib.php');
     if (file_exists($CFG->dirroot.'/lib/classes/ip_utils.php')) {
         require_once($CFG->dirroot.'/lib/classes/ip_utils.php');
     }
-    if (!remoteip_in_list('{{ALLOWEDIPS}}')) {
-        header($_SERVER['SERVER_PROTOCOL'] . ' 503 Moodle under maintenance');
-        header('Status: 503 Moodle under maintenance');
-        header('Retry-After: 300');
-        header('Content-type: text/html; charset=utf-8');
-        header('X-UA-Compatible: IE=edge');
-        header('Cache-Control: no-store, no-cache, must-revalidate');
-        header('Cache-Control: post-check=0, pre-check=0', false);
-        header('Pragma: no-cache');
-        header('Expires: Mon, 20 Aug 1969 09:23:00 GMT');
-        header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
-        header('Accept-Ranges: none');
-        header('X-Moodle-Maintenance: manager');
-        if ((defined('AJAX_SCRIPT') && AJAX_SCRIPT) || (defined('WS_SERVER') && WS_SERVER)) {
+    // Put access key as a cookie if given. This stops the need to put it as a url param on every request.
+    $urlaccesskey = optional_param('accesskey', null, PARAM_TEXT);
+
+    if (!empty($urlaccesskey)) {
+        setcookie('auth_outage_accesskey', $urlaccesskey, time() + 86400, '/', '', {{COOKIESECURE}}, {{COOKIEHTTPONLY}});
+    }
+
+    // Use url access key if given, else the cookie, else null.
+    $useraccesskey = $urlaccesskey ?: $_COOKIE['auth_outage_accesskey'] ?? null;
+
+    $ipblocked = !remoteip_in_list('{{ALLOWEDIPS}}');
+    $accesskeyblocked = $useraccesskey != '{{ACCESSKEY}}';
+    $blocked = ({{USEACCESSKEY}} && $accesskeyblocked) || ({{USEALLOWEDIPS}} && $ipblocked);
+    $isphpunit = defined('PHPUNIT_TEST');
+
+    if ($blocked) {
+        if (!$isphpunit) {
+            header($_SERVER['SERVER_PROTOCOL'] . ' 503 Moodle under maintenance');
+            header('Status: 503 Moodle under maintenance');
+            header('Retry-After: 300');
+            header('Content-type: text/html; charset=utf-8');
+            header('X-UA-Compatible: IE=edge');
+            header('Cache-Control: no-store, no-cache, must-revalidate');
+            header('Cache-Control: post-check=0, pre-check=0', false);
+            header('Pragma: no-cache');
+            header('Expires: Mon, 20 Aug 1969 09:23:00 GMT');
+            header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
+            header('Accept-Ranges: none');
+            header('X-Moodle-Maintenance: manager');
+        }
+
+        if (!$isphpunit && ((defined('AJAX_SCRIPT') && AJAX_SCRIPT) || (defined('WS_SERVER') && WS_SERVER))) {
             exit(0);
         }
-        echo '<!-- Blocked by ip, your ip: '.getremoteaddr('n/a').' -->';
-        if (file_exists($CFG->dataroot.'/climaintenance.template.html')) {
-            require($CFG->dataroot.'/climaintenance.template.html');
-            exit(0);
+
+        if ({{USEALLOWEDIPS}} && $ipblocked) {
+            echo '<!-- Blocked by ip, your ip: '.getremoteaddr('n/a').' -->';
         }
-        // The file above should always exist, but just in case...
-        die('We are currently under maintentance, please try again later.');
+        
+        if ({{USEALLOWEDIPS}} && !$ipblocked) {
+            echo '<!-- Your IP is allowed: '.getremoteaddr('n/a').' -->';
+        }
+
+        if ({{USEACCESSKEY}} && $accesskeyblocked) {
+            echo '<!-- Blocked by missing or incorrect access key, access key given: '. $useraccesskey .' -->';
+        }
+
+        if ({{USEACCESSKEY}} && !$accesskeyblocked) {
+            echo '<!-- Your access key is allowed: '. $useraccesskey .' -->';
+        }
+
+        if (!$isphpunit) {
+            if (file_exists($CFG->dataroot.'/climaintenance.template.html')) {
+                require($CFG->dataroot.'/climaintenance.template.html');
+                exit(0);
+            }
+            // The file above should always exist, but just in case...
+            die('We are currently under maintentance, please try again later.');
+        }
     }
 }
 EOT;
-        $search = ['{{STARTTIME}}', '{{STOPTIME}}', '{{ALLOWEDIPS}}', '{{YOURIP}}'];
-        $replace = [$starttime, $stoptime, $allowedips, getremoteaddr('n/a')];
+        $search = ['{{STARTTIME}}', '{{STOPTIME}}', '{{USEALLOWEDIPS}}', '{{ALLOWEDIPS}}', '{{USEACCESSKEY}}', '{{ACCESSKEY}}',
+            '{{YOURIP}}', '{{COOKIESECURE}}', '{{COOKIEHTTPONLY}}'];
+        // Note that var_export is required because (string) false == '', not 'false'.
+        $replace = [$starttime, $stoptime, var_export(!empty($allowedips), true), $allowedips, var_export(!empty($accesskey), true),
+            $accesskey, getremoteaddr('n/a'), var_export($cookiesecure, true), var_export($cookiehttponly, true)];
         return str_replace($search, $replace, $code);
     }
 
@@ -351,13 +397,15 @@ EOT;
 
         $config = self::get_config();
         $allowedips = trim($config->allowedips);
+        $accesskey = $outage->accesskey ?? null;
 
-        if (is_null($outage) || ($allowedips == '')) {
+        // If no outage, or allowed ips is null and access key is null (i.e. no blocking required).
+        if (is_null($outage) || ($allowedips == '' && empty($accesskey))) {
             if (file_exists($file)) {
                 unlink($file);
             }
         } else {
-            $code = self::create_climaintenancephp_code($outage->starttime, $outage->stoptime, $allowedips);
+            $code = self::create_climaintenancephp_code($outage->starttime, $outage->stoptime, $allowedips, $accesskey);
 
             $dir = dirname($file);
             if (!file_exists($dir) || !is_dir($dir)) {

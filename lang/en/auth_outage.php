@@ -103,9 +103,9 @@ $string['infostartofwarning'] = 'start of warning';
 $string['infostaticpage'] = 'static page';
 $string['infopagestaticgenerated'] = 'This warning was generated on {$a->time}.';
 $string['ips_combine'] = 'The IPs listed above will be combined with the IPs listed below.';
-$string['allowedipsempty'] = 'When the allowed IPs list is empty we will not block anyone. You can add your own IP address (<i>{$a->ip}</i>) and block all other IPs.';
-$string['allowedipshasmyip'] = 'Your IP (<i>{$a->ip}</i>) is in the list and you will not be blocked out during an Outage.';
-$string['allowedipshasntmyip'] = 'Your IP (<i>{$a->ip}</i>) is not in the list and you will be blocked out during an outage.';
+$string['allowedipsempty'] = 'No one will be blocked by IP because the list is empty. You can add your own IP address (<i>{$a->ip}</i>) and block all other IPs. IP blocking is in addition to access key blocking (if setup in outage)';
+$string['allowedipshasmyip'] = 'Your IP (<i>{$a->ip}</i>) is in the list and your IP will not be blocked out during an Outage.';
+$string['allowedipshasntmyip'] = 'Your IP (<i>{$a->ip}</i>) is not in the list and your IP will be blocked out during an outage.';
 $string['allowedipsnoconfig'] = 'Your config.php does not have the extra setup to allow blocking via IP.<br />Please refer to our <a href="https://github.com/catalyst/moodle-auth_outage#installation" target="_blank">README.md</a> file for more information.';
 $string['logformaintmodeconfig'] = 'Update maintenance mode configuration.';
 $string['logformaintmodeconfigcomplete'] = 'Updating maintenance mode configuration complete.';
@@ -162,6 +162,10 @@ $string['warningdurationerrorinvalid'] = 'Warning duration must be positive.';
 $string['warningduration'] = 'Warning duration';
 $string['warningduration_help'] = 'How long before the start of the outage should the warning be displayed.';
 $string['warningreenablemaintenancemode'] = 'Please note that saving this outage will re-enable maintenance mode.<br />Untick "Auto start maintenance mode" if you want to prevent this.';
+$string['accesskey'] = 'Access key';
+$string['accesskey_help'] = 'Testers should pass the access key initially in the url parameters e.g. ?accesskey=xyz. This will then be stored in a cookie for 24 hours, during which the url parameter will not be necessary.<br /><b>Note:</b> the access key is in addition to any IP restrictions setup.';
+$string['useaccesskey'] = 'Use access key';
+$string['useaccesskey:desc'] = 'Require testers to access site during outage by providing the access key below';
 
 /*
  * Privacy provider (GDPR)
