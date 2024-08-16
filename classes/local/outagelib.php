@@ -94,6 +94,16 @@ class outagelib {
         }
         return $time;
     }
+    
+    /**
+     * Prints code for injection. Used by the Moodle Hooks API.
+     * https://moodledev.io/docs/4.4/apis/core/hooks#example-of-hook-callback-registration
+     *
+     * @return void
+     */
+    public static function print_inject_code(): void {
+        echo static::get_inject_code();
+    }
 
 
     /**
